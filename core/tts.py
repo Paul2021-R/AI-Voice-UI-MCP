@@ -16,14 +16,14 @@ Phoneme = dict
 
 
 class SupertoneTTS:
-    BASE_URL = "https://api.supertone.ai"
+    BASE_URL = "https://supertoneapi.com"
 
     def __init__(self) -> None:
         self._api_key = os.getenv("SUPERTONE_API_KEY", "")
         self._voice_id = os.getenv("SUPERTONE_VOICE_ID", "")
-        self._style = os.getenv("SUPERTONE_STYLE", "normal")
+        self._style = os.getenv("SUPERTONE_STYLE", "neutral")
         self._language = os.getenv("SUPERTONE_LANGUAGE", "ko")
-        self._model = os.getenv("SUPERTONE_MODEL", "sona_speech_2")
+        self._model = os.getenv("SUPERTONE_MODEL", "sona_speech_1")
 
     def is_available(self) -> bool:
         return bool(self._api_key and self._voice_id)
@@ -37,32 +37,41 @@ class SupertoneTTS:
         if not self.is_available():
             return self._mock_synthesize(text)
 
-        import requests  # macOS / API 키 있는 환경에서만 임포트
+        import requests
 
         try:
             resp = requests.post(
-                f"{self.BASE_URL}/v1/speech",
+                f"{self.BASE_URL}/v1/text-to-speech/{self._voice_id}",
                 headers={
-                    "Authorization": f"Bearer {self._api_key}",
+                    "x-sup-api-key": self._api_key,
                     "Content-Type": "application/json",
                 },
                 json={
                     "text": text,
-                    "voice_id": self._voice_id,
-                    "style": self._style,
                     "language": self._language,
+                    "style": self._style,
                     "model": self._model,
-                    "include_phonemes": True,
                 },
                 timeout=30,
             )
             resp.raise_for_status()
-            data = resp.json()
 
-            logger.info(f"Supertone 응답 키: {list(data.keys())}")
-            audio_bytes = base64.b64decode(data.get("audio", ""))
-            phonemes: list[Phoneme] = data.get("phonemes", [])
-            logger.info(f"TTS 완료: {len(audio_bytes)} bytes, {len(phonemes)} phonemes")
+            audio_bytes = resp.content  # WAV 스트림 직접 반환
+            duration = float(resp.headers.get("X-Audio-Length", 0)) or len(audio_bytes) / 88200
+
+            # Supertone은 phoneme 타이밍을 제공하지 않으므로 단어 단위로 균등 분배
+            words = text.split()
+            word_dur = duration / max(len(words), 1)
+            phonemes: list[Phoneme] = [
+                {
+                    "text": w,
+                    "start_time": round(i * word_dur, 3),
+                    "end_time": round((i + 1) * word_dur, 3),
+                }
+                for i, w in enumerate(words)
+            ]
+
+            logger.info(f"TTS 완료: {len(audio_bytes)} bytes, duration={duration:.2f}s")
             return audio_bytes, phonemes
 
         except Exception as e:
