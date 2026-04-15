@@ -11,15 +11,12 @@ _here = Path(__file__).parent
 load_dotenv(_here / ".env")           # project/.env
 load_dotenv(_here.parent / ".env")    # repo 루트/.env
 
-_log_file = _here.parent / "jarvis-voice-ui.log"
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(_log_file, encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
+_log_file = Path.home() / "jarvis-voice-ui.log"
+_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+_file_handler = logging.FileHandler(_log_file, encoding="utf-8")
+_file_handler.setFormatter(_fmt)
+logging.basicConfig(level=logging.INFO, format=_fmt._fmt)
+logging.getLogger().addHandler(_file_handler)  # basicConfig 무시 여부와 무관하게 강제 추가
 
 from core.app import App
 from mcp_server import mcp, _state as mcp_state
