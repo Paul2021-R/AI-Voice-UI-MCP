@@ -19,16 +19,31 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    app = App()
-    app.start()
+    import sys
 
-    # MCP 상태와 App 상태를 동기화
-    # speak / cancel 호출 시 app 이벤트를 트리거하도록 연결
-    # (TODO-004 브릿지 통합 후 pywebview.api 연동으로 대체)
+    app = App()
+
     import mcp_server
     mcp_server._app = app
 
-    logger.info("Starting MCP server (stdio)")
+    if sys.platform == "darwin":
+        # macOS: pywebview는 메인 스레드 필요 → MCP를 백그라운드로 실행
+        app.window.prepare(api=app.bridge)
+        app.hotkey.start()
+
+        mcp_thread = threading.Thread(target=_run_mcp, daemon=True)
+        mcp_thread.start()
+
+        logger.info("Starting pywebview main loop (main thread)")
+        app.window.run_webview()
+    else:
+        app.start()
+        logger.info("Starting MCP server (stdio)")
+        mcp.run()
+
+
+def _run_mcp() -> None:
+    logger.info("Starting MCP server (stdio, background thread)")
     mcp.run()
 
 

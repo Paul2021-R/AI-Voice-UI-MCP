@@ -29,8 +29,11 @@ class WindowManager:
         """WAITING 타임아웃 시 호출할 콜백을 등록한다."""
         self._on_timeout_cb = callback
 
-    def start(self, api=None) -> None:
-        """백그라운드 스레드에서 webview를 초기화한다 (숨김 상태로 생성).
+    def prepare(self, api=None) -> None:
+        """윈도우를 생성만 하고 메인 루프는 시작하지 않는다 (macOS 전용).
+
+        메인 스레드에서 run_webview()를 호출하기 전에 먼저 이 메서드로
+        window 객체와 bridge를 초기화한다.
 
         Args:
             api: PyWebViewAPI 인스턴스. js_api로 pywebview에 전달되며
@@ -38,30 +41,35 @@ class WindowManager:
         """
         self._api = api
         if IS_MACOS:
-            t = threading.Thread(target=self._run_webview, daemon=True)
-            t.start()
-            self._ready.wait()
-        else:
+            import webview  # macOS 전용
+
+            self._window = webview.create_window(
+                "AI Voice UI",
+                "ui/dist/index.html",
+                width=800,
+                height=600,
+                frameless=True,
+                hidden=True,
+                js_api=self._api,
+            )
+            if self._api and hasattr(self._api, "bind_window"):
+                self._api.bind_window(self._window)
+        self._ready.set()
+
+    def start(self, api=None) -> None:
+        """Linux/Mock 환경 전용 초기화. macOS에서는 prepare() + run_webview()를 사용한다."""
+        self._api = api
+        if not IS_MACOS:
             logger.info("[MOCK] WindowManager started (hidden)")
             self._ready.set()
 
-    def _run_webview(self) -> None:
-        import webview  # macOS 전용
+    def run_webview(self) -> None:
+        """pywebview 메인 루프를 시작한다. 반드시 메인 스레드에서 호출해야 한다 (macOS)."""
+        if IS_MACOS:
+            import webview  # macOS 전용
 
-        self._window = webview.create_window(
-            "AI Voice UI",
-            "ui/dist/index.html",
-            width=800,
-            height=600,
-            frameless=True,
-            hidden=True,
-            js_api=self._api,  # window.pywebview.api 로 JS에 노출
-        )
-        # bridge가 push_state(evaluate_js) 를 쓸 수 있도록 window 인스턴스 주입
-        if self._api and hasattr(self._api, "bind_window"):
-            self._api.bind_window(self._window)
-        self._ready.set()
-        webview.start()
+            self._ready.set()
+            webview.start()
 
     def show(self) -> None:
         """윈도우를 표시하고 WAITING 타이머를 취소한다."""
