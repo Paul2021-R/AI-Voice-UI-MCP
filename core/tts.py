@@ -59,6 +59,7 @@ class SupertoneTTS:
             resp.raise_for_status()
             data = resp.json()
 
+            logger.info(f"Supertone 응답 키: {list(data.keys())}")
             audio_bytes = base64.b64decode(data.get("audio", ""))
             phonemes: list[Phoneme] = data.get("phonemes", [])
             logger.info(f"TTS 완료: {len(audio_bytes)} bytes, {len(phonemes)} phonemes")
