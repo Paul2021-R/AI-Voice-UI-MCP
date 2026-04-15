@@ -3,9 +3,13 @@
 import logging
 import threading
 
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# 실행 위치와 무관하게 project/ 또는 repo 루트의 .env를 로드한다
+_here = Path(__file__).parent
+load_dotenv(_here / ".env")           # project/.env
+load_dotenv(_here.parent / ".env")    # repo 루트/.env
 
 logging.basicConfig(
     level=logging.INFO,
