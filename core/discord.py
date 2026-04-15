@@ -18,7 +18,7 @@ def send_to_jarvis(text: str) -> None:
         logger.info(f"[MOCK Discord] Jarvis에게 전달: {text!r}")
         return
 
-    content = f"<@{jarvis_id}> {text}" if jarvis_id else text
+    content = f"{text} <@{jarvis_id}>" if jarvis_id else text
 
     import requests  # API 키 있는 환경에서만 임포트
 
