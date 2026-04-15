@@ -20,6 +20,9 @@ export interface PyWebViewAPI {
 
   /** TTS 재생 완료를 Python에 알린다 → on_speak_done() 트리거. */
   notify_speak_done(): Promise<void>;
+
+  /** 대기 중인 TTS 오디오와 음소 데이터를 Python에서 가져온다. */
+  get_pending_audio(): Promise<{ audio: string; phonemes: unknown[] }>;
 }
 
 // ------------------------------------------------------------------ //
@@ -28,7 +31,8 @@ export interface PyWebViewAPI {
 // ------------------------------------------------------------------ //
 export interface PythonPushBridge {
   onStateChange(state: AppState): void;
-  onAudioReady(audioB64: string, phonemes: unknown[]): void;
+  /** Python이 오디오 준비 완료를 알린다. 데이터는 get_pending_audio()로 직접 가져간다. */
+  onAudioReady(): void;
 }
 
 export type AppState =
@@ -61,6 +65,11 @@ class MockBridge implements PyWebViewAPI {
     console.log("[MockBridge] notify_speak_done()");
   }
 
+  async get_pending_audio(): Promise<{ audio: string; phonemes: unknown[] }> {
+    console.log("[MockBridge] get_pending_audio()");
+    return { audio: "", phonemes: [] };
+  }
+
   /** 테스트용 — 상태를 강제 변경하고 onStateChange 콜백을 발행한다. */
   simulateStateChange(state: AppState): void {
     this._state = state;
@@ -89,11 +98,14 @@ export function initBridge(): void {
       console.log("[Bridge] 상태 수신:", state);
       window.dispatchEvent(new CustomEvent("app-state-change", { detail: state }));
     },
-    onAudioReady: (audioB64: string, phonemes: unknown[]) => {
-      console.log(`[Bridge] TTS 수신: ${audioB64.length} chars, ${phonemes.length} phonemes`);
-      window.dispatchEvent(
-        new CustomEvent("tts-audio-ready", { detail: { audioB64, phonemes } })
-      );
+    onAudioReady: () => {
+      console.log("[Bridge] TTS 준비 신호 수신 — get_pending_audio() 호출");
+      getApi()?.get_pending_audio().then(({ audio, phonemes }) => {
+        if (!audio) return;
+        window.dispatchEvent(
+          new CustomEvent("tts-audio-ready", { detail: { audioB64: audio, phonemes } })
+        );
+      });
     },
   };
 }

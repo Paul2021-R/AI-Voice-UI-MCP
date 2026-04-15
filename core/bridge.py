@@ -18,6 +18,8 @@ class PyWebViewAPI:
         self._get_state_cb: Callable[[], str] = lambda: "IDLE"
         self._on_stt_complete: Callable[[str], None] | None = None
         self._on_speak_done: Callable[[], None] | None = None
+        self._pending_audio: str = ""
+        self._pending_phonemes: list = []
 
     def bind_window(self, window) -> None:
         """pywebview window 인스턴스를 주입한다 (macOS 전용)."""
@@ -86,15 +88,21 @@ class PyWebViewAPI:
         else:
             logger.info(f"[MOCK] push_state → {state}")
 
+    def get_pending_audio(self) -> dict:
+        """React가 호출하여 대기 중인 TTS 오디오와 음소 데이터를 가져간다."""
+        return {"audio": self._pending_audio, "phonemes": self._pending_phonemes}
+
     def push_audio_and_phonemes(self, audio_b64: str, phonemes: list) -> None:
-        """TTS 오디오(base64)와 음소 타이밍 데이터를 React로 푸시한다."""
-        import json
-        phonemes_json = json.dumps(phonemes, ensure_ascii=False)
+        """TTS 오디오(base64)와 음소 타이밍 데이터를 React로 푸시한다.
+
+        오디오 데이터는 evaluate_js 크기 제한을 피하기 위해 Python에 보관하고,
+        React가 get_pending_audio()를 호출하여 직접 가져가는 pull 방식을 사용한다.
+        """
+        self._pending_audio = audio_b64
+        self._pending_phonemes = phonemes
         if self._window:
-            # evaluate_js 인수 크기 제한 고려 — 큰 오디오는 청크 전송으로 개선 가능
             self._window.evaluate_js(
-                f"window.__bridge && window.__bridge.onAudioReady("
-                f"'{audio_b64}', {phonemes_json})"
+                "window.__bridge && window.__bridge.onAudioReady()"
             )
         else:
             logger.info(
