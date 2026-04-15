@@ -11,9 +11,14 @@ _here = Path(__file__).parent
 load_dotenv(_here / ".env")           # project/.env
 load_dotenv(_here.parent / ".env")    # repo 루트/.env
 
+_log_file = _here.parent / "jarvis-voice-ui.log"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(_log_file, encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
 )
 
 from core.app import App
