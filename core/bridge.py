@@ -79,6 +79,13 @@ class PyWebViewAPI:
     # Python → JS
     # ------------------------------------------------------------------ #
 
+    def push_amplitude(self, amplitude: float) -> None:
+        """Python 마이크 캡처 중 진폭 데이터를 React로 푸시한다."""
+        if self._window:
+            self._window.evaluate_js(
+                f"window.__bridge && window.__bridge.onAmplitude({amplitude:.3f})"
+            )
+
     def push_state(self, state: str) -> None:
         """앱 상태를 React UI로 푸시한다."""
         if self._window:

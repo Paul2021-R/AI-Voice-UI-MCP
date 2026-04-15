@@ -33,6 +33,8 @@ export interface PythonPushBridge {
   onStateChange(state: AppState): void;
   /** Python이 오디오 준비 완료를 알린다. 데이터는 get_pending_audio()로 직접 가져간다. */
   onAudioReady(): void;
+  /** Python 마이크 캡처 중 진폭 데이터를 수신한다 (0~1). */
+  onAmplitude(amplitude: number): void;
 }
 
 export type AppState =
@@ -106,6 +108,9 @@ export function initBridge(): void {
           new CustomEvent("tts-audio-ready", { detail: { audioB64: audio, phonemes } })
         );
       });
+    },
+    onAmplitude: (amplitude: number) => {
+      window.dispatchEvent(new CustomEvent("mic-amplitude", { detail: amplitude }));
     },
   };
 }
