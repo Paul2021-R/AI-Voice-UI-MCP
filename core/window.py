@@ -7,7 +7,11 @@ Linux/기타: Mock 모드 (로그 출력)
 import logging
 import sys
 import threading
+from pathlib import Path
 from typing import Callable
+
+_PROJECT_ROOT = Path(__file__).parent.parent
+_UI_DIST = str(_PROJECT_ROOT / "ui" / "dist" / "index.html")
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +49,7 @@ class WindowManager:
 
             self._window = webview.create_window(
                 "AI Voice UI",
-                "ui/dist/index.html",
+                _UI_DIST,
                 width=800,
                 height=600,
                 frameless=True,
