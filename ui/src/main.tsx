@@ -4,7 +4,19 @@ import { initBridge } from './bridge'
 import './index.css'
 import App from './App.tsx'
 
+/** WKWebView autoplay 정책 우회 — 페이지 로드 시 AudioContext를 unlock한다. */
+function unlockAudioContext() {
+  const ctx = new AudioContext()
+  const buf = ctx.createBuffer(1, 1, 22050)
+  const src = ctx.createBufferSource()
+  src.buffer = buf
+  src.connect(ctx.destination)
+  src.start(0)
+  ctx.resume().then(() => ctx.close())
+}
+
 function mount() {
+  unlockAudioContext()
   initBridge()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

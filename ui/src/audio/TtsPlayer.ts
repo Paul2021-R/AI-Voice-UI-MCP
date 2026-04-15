@@ -25,6 +25,11 @@ export class TtsPlayer {
 
     this._ctx = new AudioContext();
 
+    // WKWebView autoplay 정책 우회 — 사용자 인터랙션 없이도 재생되도록 resume()
+    if (this._ctx.state === "suspended") {
+      await this._ctx.resume();
+    }
+
     // base64 → ArrayBuffer
     const binary = atob(audioB64);
     const bytes = new Uint8Array(binary.length);
@@ -40,6 +45,7 @@ export class TtsPlayer {
 
     const startTime = this._ctx.currentTime;
     this._source.start();
+    console.log(`[TtsPlayer] 재생 시작: ${audioBuffer.duration.toFixed(2)}s`);
 
     this._source.onended = () => {
       onEnded();
