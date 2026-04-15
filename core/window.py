@@ -4,18 +4,49 @@ macOS: pywebview 실제 사용
 Linux/기타: Mock 모드 (로그 출력)
 """
 
+import http.server
 import logging
+import socket
 import sys
 import threading
 from pathlib import Path
 from typing import Callable
 
 _PROJECT_ROOT = Path(__file__).parent.parent
-_UI_DIST = str(_PROJECT_ROOT / "ui" / "dist" / "index.html")
+_UI_DIST_DIR = _PROJECT_ROOT / "ui" / "dist"
 
 logger = logging.getLogger(__name__)
 
 IS_MACOS = sys.platform == "darwin"
+
+
+def _find_free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
+
+def _start_localhost_server(directory: str) -> str:
+    """dist 디렉토리를 localhost HTTP 서버로 서빙한다.
+
+    http://127.0.0.1 은 WKWebView에서 secure context로 인정받지 못해
+    navigator.mediaDevices(마이크)가 차단된다.
+    localhost 는 secure context로 인정되므로 localhost로 서빙한다.
+    """
+    port = _find_free_port()
+
+    class _Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=directory, **kwargs)
+
+        def log_message(self, fmt, *args):  # 액세스 로그 억제
+            pass
+
+    server = http.server.HTTPServer(("localhost", port), _Handler)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    logger.info(f"Local HTTP server started at http://localhost:{port}/")
+    return f"http://localhost:{port}/index.html"
 
 
 class WindowManager:
@@ -47,9 +78,11 @@ class WindowManager:
         if IS_MACOS:
             import webview  # macOS 전용
 
+            url = _start_localhost_server(str(_UI_DIST_DIR))
+
             self._window = webview.create_window(
                 "AI Voice UI",
-                _UI_DIST,
+                url,
                 width=800,
                 height=600,
                 frameless=True,
@@ -73,9 +106,7 @@ class WindowManager:
             import webview  # macOS 전용
 
             self._ready.set()
-            # http_server=True: 로컬 HTTP 서버로 파일을 서빙한다.
-            # file:// 프로토콜에서는 getUserMedia(마이크) 등 보안 API가 차단되므로 필수.
-            webview.start(http_server=True, debug=True)
+            webview.start(debug=True)
 
     def show(self) -> None:
         """윈도우를 표시하고 WAITING 타이머를 취소한다."""
