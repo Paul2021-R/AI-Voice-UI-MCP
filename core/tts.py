@@ -69,7 +69,27 @@ class SupertoneTTS:
             return self._mock_synthesize(text)
 
     def _mock_synthesize(self, text: str) -> tuple[bytes, list[Phoneme]]:
-        logger.info(f"[MOCK TTS] {text!r}")
+        """macOS say 명령어로 실제 음성을 생성한다. 실패 시 무음으로 폴백."""
+        import sys
+        if sys.platform == "darwin":
+            audio_bytes = _say_to_wav(text)
+            if audio_bytes:
+                logger.info(f"[macOS TTS] say 완료: {len(audio_bytes)} bytes")
+                words = text.split()
+                # say는 phoneme 타이밍 정보가 없으므로 단어 단위로 균등 분배
+                duration = len(audio_bytes) / (16000 * 2)
+                word_dur = duration / max(len(words), 1)
+                phonemes: list[Phoneme] = [
+                    {
+                        "text": w,
+                        "start_time": round(i * word_dur, 3),
+                        "end_time": round((i + 1) * word_dur, 3),
+                    }
+                    for i, w in enumerate(words)
+                ]
+                return audio_bytes, phonemes
+
+        logger.info(f"[MOCK TTS] 무음 반환: {text!r}")
         duration = 2.0
         audio_bytes = _silent_wav(duration)
         words = text.split()
@@ -83,6 +103,38 @@ class SupertoneTTS:
             for i, w in enumerate(words)
         ]
         return audio_bytes, phonemes
+
+
+def _say_to_wav(text: str, sample_rate: int = 16000) -> bytes:
+    """macOS say 명령어로 텍스트를 WAV로 변환한다."""
+    import subprocess
+    import tempfile
+    import os
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        tmp_path = f.name
+
+    try:
+        result = subprocess.run(
+            [
+                "say",
+                "-o", tmp_path,
+                f"--data-format=LEI16@{sample_rate}",
+                text,
+            ],
+            capture_output=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            logger.error(f"say 실패: {result.stderr}")
+            return b""
+        with open(tmp_path, "rb") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"say 오류: {e}")
+        return b""
+    finally:
+        os.unlink(tmp_path)
 
 
 def _silent_wav(seconds: float, sample_rate: int = 22050) -> bytes:
