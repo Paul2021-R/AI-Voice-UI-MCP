@@ -73,7 +73,9 @@ class WindowManager:
             import webview  # macOS 전용
 
             self._ready.set()
-            webview.start()
+            # http_server=True: 로컬 HTTP 서버로 파일을 서빙한다.
+            # file:// 프로토콜에서는 getUserMedia(마이크) 등 보안 API가 차단되므로 필수.
+            webview.start(http_server=True)
 
     def show(self) -> None:
         """윈도우를 표시하고 WAITING 타이머를 취소한다."""

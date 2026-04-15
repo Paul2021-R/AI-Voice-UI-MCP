@@ -39,7 +39,7 @@ export class MicCapture {
     this._ctx = new AudioContext();
     this._nativeRate = this._ctx.sampleRate;
 
-    await this._ctx.audioWorklet.addModule("/mic-processor.js");
+    await this._ctx.audioWorklet.addModule("./mic-processor.js");
 
     const source = this._ctx.createMediaStreamSource(this._stream);
     this._worklet = new AudioWorkletNode(this._ctx, "mic-processor");
