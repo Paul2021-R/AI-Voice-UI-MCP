@@ -38,14 +38,22 @@ export function useMicCapture(state: AppState): { amplitude: number } {
       const mic = micRef.current;
       micRef.current = null;
 
+      console.log("[MicCapture] state left LISTENING, mic:", mic, "isRunning:", mic?.isRunning);
       if (mic?.isRunning) {
-        mic.stop().then((wav_b64) => {
-          if (!wav_b64) return;
-          console.log("[MicCapture] recording done, sending to Python");
-          getApi()
-            ?.end_audio(wav_b64)
-            .catch((err) => console.error("[MicCapture] end_audio failed:", err));
-        });
+        mic.stop()
+          .then((wav_b64) => {
+            console.log("[MicCapture] stop() done, wav_b64 length:", wav_b64?.length ?? 0);
+            if (!wav_b64) {
+              console.error("[MicCapture] wav_b64 is empty — no audio captured");
+              return;
+            }
+            console.log("[MicCapture] calling end_audio...");
+            return getApi()?.end_audio(wav_b64);
+          })
+          .then(() => console.log("[MicCapture] end_audio call returned"))
+          .catch((err) => console.error("[MicCapture] error:", err));
+      } else {
+        console.warn("[MicCapture] mic not running when PROCESSING — end_audio skipped");
       }
     }
 
